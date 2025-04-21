@@ -68,138 +68,147 @@ test.before('should dynamically create service', t => {
   server.addService(argProto.ArgService.service, { listStuff })
   server.bindAsync(DYNAMIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.cb('res stream call service using just an argument', t => {
+test('res stream call service using just an argument', t => {
   t.plan(1)
-  let resData = []
-  const call = client.listStuff({ message: 'Hello' })
-  call.on('data', d => resData.push(d))
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
+  return new Promise((resolve, reject)=>{
+    let resData = []
+    const call = client.listStuff({ message: 'Hello' })
+    call.on('data', d => resData.push(d))
+    call.on('end', () => {
+      resData = _.sortBy(resData, 'message')
 
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      return { message: d.message + ':Hello' }
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        return { message: d.message + ':Hello' }
+      })
+
+      t.deepEqual(resData, expected)
+      resolve()
     })
-
-    t.deepEqual(resData, expected)
-    t.end()
   })
 })
 
-test.cb('call service with metadata as plain object', t => {
+test('call service with metadata as plain object', t => {
   t.plan(1)
-  let resData = []
-  const ts = new Date().getTime()
-  const call = client.listStuff({ message: 'Hi' }, { requestId: 'bar-123', timestamp: ts })
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
-
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message + ':Hi'
-      d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
-      return d
+  return new Promise((resolve, reject)=>{
+    let resData = []
+    const ts = new Date().getTime()
+    const call = client.listStuff({ message: 'Hi' }, { requestId: 'bar-123', timestamp: ts })
+    call.on('data', d => {
+      const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+      resData.push({ message: d.message, metadata })
     })
 
-    t.deepEqual(resData, expected)
-    t.end()
+    call.on('end', () => {
+      resData = _.sortBy(resData, 'message')
+
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        d.message = d.message + ':Hi'
+        d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
+        return d
+      })
+
+      t.deepEqual(resData, expected)
+      resolve()
+    })
   })
 })
 
-test.cb('call service with metadata as Metadata', t => {
+test('call service with metadata as Metadata', t => {
   t.plan(1)
-  const ts = new Date().getTime().toString()
-  const reqMeta = new grpc.Metadata()
-  reqMeta.add('requestId', 'bar-123')
-  reqMeta.add('timestamp', ts)
+  return new Promise((resolve)=>{
+    const ts = new Date().getTime().toString()
+    const reqMeta = new grpc.Metadata()
+    reqMeta.add('requestId', 'bar-123')
+    reqMeta.add('timestamp', ts)
 
-  let resData = []
+    let resData = []
 
-  const call = client.listStuff({ message: 'Yo' }, reqMeta)
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
-
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message + ':Yo'
-      d.metadata = { requestid: 'bar-123', timestamp: ts }
-      return d
+    const call = client.listStuff({ message: 'Yo' }, reqMeta)
+    call.on('data', d => {
+      const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+      resData.push({ message: d.message, metadata })
     })
 
-    t.deepEqual(resData, expected)
-    t.end()
+    call.on('end', () => {
+      resData = _.sortBy(resData, 'message')
+
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        d.message = d.message + ':Yo'
+        d.metadata = { requestid: 'bar-123', timestamp: ts }
+        return d
+      })
+
+      t.deepEqual(resData, expected)
+      resolve()
+    })
   })
 })
 
-test.cb('call service with metadata as plain object and options object', t => {
+test('call service with metadata as plain object and options object', t => {
   t.plan(1)
-  let resData = []
-  const ts = new Date().getTime()
-  const call = client.listStuff(
-    { message: 'Hello' },
-    { requestId: 'bar-123', timestamp: ts },
-    { some: 'blah' }
-  )
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
-
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message + ':Hello'
-      d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
-      return d
+  return new Promise(resolve => {
+    let resData = []
+    const ts = new Date().getTime()
+    const call = client.listStuff(
+      { message: 'Hello' },
+      { requestId: 'bar-123', timestamp: ts },
+      { some: 'blah' }
+    )
+    call.on('data', d => {
+      const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+      resData.push({ message: d.message, metadata })
     })
 
-    t.deepEqual(resData, expected)
-    t.end()
+    call.on('end', () => {
+      resData = _.sortBy(resData, 'message')
+
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        d.message = d.message + ':Hello'
+        d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
+        return d
+      })
+
+      t.deepEqual(resData, expected)
+      resolve()
+    })
   })
 })
 
-test.cb('call service with metadata as Metadata and options object', t => {
+test('call service with metadata as Metadata and options object', t => {
   t.plan(1)
-  let resData = []
-  const ts = new Date().getTime().toString()
-  const reqMeta = new grpc.Metadata()
-  reqMeta.add('requestId', 'bar-123')
-  reqMeta.add('timestamp', ts)
-  const call = client.listStuff({ message: 'Hello' }, reqMeta, { some: 'blah' })
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
-
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message + ':Hello'
-      d.metadata = { requestid: 'bar-123', timestamp: ts }
-      return d
+  return new Promise(resolve => {
+    let resData = []
+    const ts = new Date().getTime().toString()
+    const reqMeta = new grpc.Metadata()
+    reqMeta.add('requestId', 'bar-123')
+    reqMeta.add('timestamp', ts)
+    const call = client.listStuff({ message: 'Hello' }, reqMeta, { some: 'blah' })
+    call.on('data', d => {
+      const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+      resData.push({ message: d.message, metadata })
     })
 
-    t.deepEqual(resData, expected)
-    t.end()
+    call.on('end', () => {
+      resData = _.sortBy(resData, 'message')
+
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        d.message = d.message + ':Hello'
+        d.metadata = { requestid: 'bar-123', timestamp: ts }
+        return d
+      })
+
+      t.deepEqual(resData, expected)
+      resolve()
+    })
   })
 })
 
@@ -214,6 +223,6 @@ test('Request API: should fail due to unsupported call type', t => {
   t.is(error.message, 'Invalid call: listStuff cannot be called using Request API')
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', async t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })

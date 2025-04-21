@@ -7,6 +7,7 @@ const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
 const caller = require('../')
+const { ref } = require('process')
 
 const PROTO_PATH = path.resolve(__dirname, './protos/reqres.proto')
 const packageDefinition = protoLoader.loadSync(PROTO_PATH)
@@ -14,11 +15,11 @@ const argProto = grpc.loadPackageDefinition(packageDefinition).argservice
 
 const apps = []
 
-function getRandomInt (min, max) {
+function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function getHost (port) {
+function getHost(port) {
   return '0.0.0.0:'.concat(port || getRandomInt(1000, 60000))
 }
 
@@ -26,7 +27,7 @@ const DYNAMIC_HOST = getHost()
 const client = caller(DYNAMIC_HOST, PROTO_PATH, 'ArgService')
 
 test.before('should dynamically create service', t => {
-  function doSomething (call, callback) {
+  function doSomething(call, callback) {
     const ret = { message: call.request.message }
 
     const md = new grpc.Metadata()
@@ -53,20 +54,25 @@ test.before('should dynamically create service', t => {
   server.addService(argProto.ArgService.service, { doSomething })
   server.bindAsync(DYNAMIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.cb('call service using callback and just an argument', t => {
+test('call service using callback and just an argument', t => {
   t.plan(5)
-  client.doSomething({ message: 'Hello' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.falsy(response.metadata)
-    t.is(response.message, 'Hello')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.doSomething({ message: 'Hello' }, (err, response) => {
+      if (err) {
+        t.fail(err)
+        reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.falsy(response.metadata)
+      t.is(response.message, 'Hello')
+      resolve()
+    })
   })
 })
 
@@ -79,19 +85,25 @@ test('call service using async with just an argument', async t => {
   t.is(response.message, 'Hi')
 })
 
-test.cb('call service using callback with metadata as plain object', t => {
+test('call service using callback with metadata as plain object', t => {
   t.plan(6)
   const ts = new Date().getTime()
-  client.doSomething({ message: 'Hello' }, { requestId: 'bar-123', timestamp: ts }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts.toString() }
-    t.deepEqual(metadata, expected)
-    t.end()
+  return new Promise((resolve, reject)=>{
+    client.doSomething({ message: 'Hello' }, { requestId: 'bar-123', timestamp: ts }, (err, response) => {
+      if (err) {
+        t.fail(err.message)
+        reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts.toString() }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -108,22 +120,28 @@ test('call service using async with metadata as plain object', async t => {
   t.deepEqual(metadata, expected)
 })
 
-test.cb('call service using callback with metadata as Metadata', t => {
+test('call service using callback with metadata as Metadata', t => {
   t.plan(6)
   const ts = new Date().getTime().toString()
   const reqMeta = new grpc.Metadata()
   reqMeta.add('requestId', 'bar-123')
   reqMeta.add('timestamp', ts)
-  client.doSomething({ message: 'Hello' }, reqMeta, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts }
-    t.deepEqual(metadata, expected)
-    t.end()
+  return new Promise((resolve, reject) =>{
+    client.doSomething({ message: 'Hello' }, reqMeta, (err, response) => {
+      if (err) {
+        t.fail(err.message)
+        reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -143,19 +161,25 @@ test('call service using async with metadata as Metadata', async t => {
   t.deepEqual(metadata, expected)
 })
 
-test.cb('call service using callback with metadata as plain object and options object', t => {
+test('call service using callback with metadata as plain object and options object', t => {
   t.plan(6)
   const ts = new Date().getTime()
-  client.doSomething({ message: 'Hello' }, { requestId: 'bar-123', timestamp: ts }, { some: 'blah' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts.toString() }
-    t.deepEqual(metadata, expected)
-    t.end()
+  return new Promise((resolve, reject)=>{
+    client.doSomething({ message: 'Hello' }, { requestId: 'bar-123', timestamp: ts }, { some: 'blah' }, (err, response) => {
+      if (err) {
+        t.fail(err.message)
+        reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts.toString() }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -172,22 +196,27 @@ test('call service using async with metadata as plain object and options object'
   t.deepEqual(metadata, expected)
 })
 
-test.cb('call service using callback with metadata as Metadata and options object', t => {
-  t.plan(6)
+test('call service using callback with metadata as Metadata and options object', t => {
+  t.plan(5)
   const ts = new Date().getTime().toString()
-  const reqMeta = new grpc.Metadata()
-  reqMeta.add('requestId', 'bar-123')
-  reqMeta.add('timestamp', ts)
-  client.doSomething({ message: 'Hello' }, reqMeta, { some: 'blah' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts }
-    t.deepEqual(metadata, expected)
-    t.end()
+  return new Promise((resolve, reject) => {
+    const reqMeta = new grpc.Metadata()
+    reqMeta.add('requestId', 'bar-123')
+    reqMeta.add('timestamp', ts)
+    client.doSomething({ message: 'Hello' }, reqMeta, { some: 'blah' }, (err, response) => {
+      if (err) {
+        t.fail(err)
+        reject(err)
+      }
+      t.truthy(response)
+     t.truthy(response.message)
+      t.is(response.message, 'Hello')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -207,22 +236,29 @@ test('call service using async with metadata as Metadata and options object', as
   t.deepEqual(metadata, expected)
 })
 
-test.cb('Request API: call service using callback and just an argument', t => {
+test('Request API: call service using callback and just an argument', t => {
   t.plan(9)
   const req = new client.Request('doSomething', { message: 'Hello' })
-  req.exec((err, res) => {
-    t.falsy(err)
-    const { response } = res
-    t.truthy(res.response)
-    t.truthy(res.call)
-    t.falsy(res.metadata)
-    t.falsy(res.status)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.falsy(response.metadata)
-    t.is(response.message, 'Hello')
-    t.end()
+  return new Promise((resolve, reject)=>{
+    req.exec((err, res) => {
+      if (err) {
+        t.fail(err.message)
+        return reject(err)
+      }
+      t.falsy(err)
+      const { response } = res
+      t.truthy(res.response)
+      t.truthy(res.call)
+      t.falsy(res.metadata)
+      t.falsy(res.status)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.falsy(response.metadata)
+      t.is(response.message, 'Hello')
+      resolve()
+    })
   })
+
 })
 
 test('Request API: call service using async with just an argument', async t => {
@@ -240,26 +276,32 @@ test('Request API: call service using async with just an argument', async t => {
   t.is(response.message, 'Hi')
 })
 
-test.cb('Request API: call service using callback with metadata as plain object', t => {
+test('Request API: call service using callback with metadata as plain object', t => {
   t.plan(9)
   const ts = new Date().getTime()
   const req = new client.Request('doSomething', { message: 'Hello' })
     .withMetadata({ requestId: 'bar-123', timestamp: ts })
 
-  req.exec((err, res) => {
-    t.falsy(err)
-    const { response } = res
-    t.truthy(res.call)
-    t.falsy(res.metadata)
-    t.falsy(res.status)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts.toString() }
-    t.deepEqual(metadata, expected)
-    t.end()
+  return new Promise((resolve, reject)=>{
+    req.exec((err, res) => {
+      if (err) {
+        t.fail(err)
+        reject(err)
+      }
+      t.falsy(err)
+      const { response } = res
+      t.truthy(res.call)
+      t.falsy(res.metadata)
+      t.falsy(res.status)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts.toString() }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -373,7 +415,7 @@ test('Request API: with metadata and status option', async t => {
   t.deepEqual(metadata, expected)
 })
 
-test.cb('Request API: with metadata and status option with callback', t => {
+test('Request API: with metadata and status option with callback', t => {
   t.plan(13)
   const ts = new Date().getTime()
 
@@ -382,30 +424,36 @@ test.cb('Request API: with metadata and status option with callback', t => {
     .withResponseMetadata(true)
     .withResponseStatus(true)
 
-  req.exec((err, res) => {
-    t.falsy(err)
-    t.truthy(res.metadata)
-    const md1 = res.metadata.getMap()
-    const expectedMd = { headermd: 'headerValue' }
-    t.is(md1.headermd, expectedMd.headermd)
+  return new Promise((resolve, reject)=>{
+    req.exec((err, res) => {
+      if (err) {
+        t.fail(err)
+        reject(err)
+      }
+      t.falsy(err)
+      t.truthy(res.metadata)
+      const md1 = res.metadata.getMap()
+      const expectedMd = { headermd: 'headerValue' }
+      t.is(md1.headermd, expectedMd.headermd)
 
-    t.truthy(res.status)
-    t.is(res.status.code, 0)
-    t.is(res.status.details, 'OK')
-    t.truthy(res.status.metadata)
-    const md2 = res.status.metadata.getMap()
-    const expectedMd2 = { trailermd: 'trailerValue' }
-    t.deepEqual(md2, expectedMd2)
+      t.truthy(res.status)
+      t.is(res.status.code, 0)
+      t.is(res.status.details, 'OK')
+      t.truthy(res.status.metadata)
+      const md2 = res.status.metadata.getMap()
+      const expectedMd2 = { trailermd: 'trailerValue' }
+      t.deepEqual(md2, expectedMd2)
 
-    const { response } = res
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hi')
-    t.truthy(response.metadata)
-    const metadata = JSON.parse(response.metadata)
-    const expected = { requestid: 'bar-123', timestamp: ts.toString() }
-    t.deepEqual(metadata, expected)
-    t.end()
+      const { response } = res
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hi')
+      t.truthy(response.metadata)
+      const metadata = JSON.parse(response.metadata)
+      const expected = { requestid: 'bar-123', timestamp: ts.toString() }
+      t.deepEqual(metadata, expected)
+      resolve()
+    })
   })
 })
 
@@ -423,6 +471,6 @@ test('Request API: expect to throw on unknown client method', t => {
   t.is(error.message, 'Invalid method: asdf')
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', async t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })

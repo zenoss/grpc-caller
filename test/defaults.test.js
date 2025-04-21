@@ -41,51 +41,68 @@ test.before('start test servic', t => {
   server.addService(services.GreeterService, { sayHello: sayHello })
   server.bindAsync(TEST_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.cb('should pass default metadata', t => {
+test('should pass default metadata', t => {
   t.plan(4)
   const client = caller(TEST_HOST, PROTO_PATH, 'helloworld.Greeter', false, {}, { metadata: { foo: 'bar' } })
-  client.sayHello({ name: 'Bob' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'bar -> Hello Bob')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, (err, response) => {
+      if (err) {
+        t.fail(`Error calling sayHello: ${err}`)
+        return reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'bar -> Hello Bob')
+      resolve()
+    })
   })
 })
 
-test.cb('should pass extend metadata (simple object)', t => {
+test('should pass extend metadata (simple object)', t => {
   t.plan(4)
   const client = caller(TEST_HOST, PROTO_PATH, 'helloworld.Greeter', false, {}, { metadata: { foo: 'bar', ping: 'pong' } })
-  client.sayHello({ name: 'Bob' }, { foo: 'bar2000' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'bar2000 -> Hello Bob -> pong')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, { foo: 'bar2000' }, (err, response) => {
+      if (err) {
+        t.fail(`Error calling sayHello: ${err}`)
+        return reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'bar2000 -> Hello Bob -> pong')
+      resolve()
+    })
   })
 })
 
-test.cb('should pass extend metadata (grpc.Metadata)', t => {
+test('should pass extend metadata (grpc.Metadata)', t => {
   t.plan(4)
   const meta = new grpc.Metadata()
   meta.add('ping', 'master')
 
   const client = caller(TEST_HOST, PROTO_PATH, 'helloworld.Greeter', false, {}, { metadata: { foo: 'bar' } })
-  client.sayHello({ name: 'Bob' }, meta, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'bar -> Hello Bob -> master')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, meta, (err, response) => {
+      if (err) {
+        t.fail(`Error calling sayHello: ${err}`)
+        return reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'bar -> Hello Bob -> master')
+      resolve()
+    })
   })
 })
 
-test.cb('load interceptors and default metadata', t => {
+test('load interceptors and default metadata', t => {
   t.plan(5)
 
   const interceptor = (options, nextCall) =>
@@ -101,16 +118,22 @@ test.cb('load interceptors and default metadata', t => {
     options: { interceptors: [interceptor] }
   })
 
-  client.sayHello({ name: 'Bob' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'bar -> Hello Bob2')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, (err, response) => {
+      if (err) {
+        t.fail(`Error calling sayHello: ${err}`)
+        return reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'bar -> Hello Bob2')
+      resolve()
+    })
   })
 })
 
-test.cb('load interceptors, default metadata and call metadata', t => {
+test('load interceptors, default metadata and call metadata', t => {
   t.plan(5)
 
   const interceptor = (options, nextCall) =>
@@ -126,12 +149,18 @@ test.cb('load interceptors, default metadata and call metadata', t => {
     options: { interceptors: [interceptor] }
   })
 
-  client.sayHello({ name: 'Bob' }, { ping: 'meta' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'bar -> Hello Bob2 -> meta')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, { ping: 'meta' }, (err, response) => {
+      if (err) {
+        t.fail(`Error calling sayHello: ${err}`)
+        return reject(err)
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'bar -> Hello Bob2 -> meta')
+      resolve()
+    })
   })
 })
 
@@ -197,6 +226,6 @@ test('static async options interceptors, default metadata and call metadata', as
   t.is(msg, 'bar -> Hello Bob2 -> meta')
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', async t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })

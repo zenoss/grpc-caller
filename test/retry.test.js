@@ -60,24 +60,30 @@ test.before('should dynamically create service', t => {
   server.addService(argProto.ArgService.service, { doSomething })
   server.bindAsync(DYNAMIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.serial.cb('Retry: call service using retry option and callback', t => {
+test.serial('Retry: call service using retry option and callback', t => {
   t.plan(6)
 
   callCounter = 0
 
-  client.doSomething({ message: 'Bad' }, {}, { retry: 5 }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.falsy(response.metadata)
-    t.is(response.message, 'Bad')
-    t.is(callCounter, 3)
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.doSomething({ message: 'Bad' }, {}, { retry: 5 }, (err, response) => {
+      if (err) {
+        t.fail(err)
+        return reject(err)
+      }
+
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.falsy(response.metadata)
+      t.is(response.message, 'Bad')
+      t.is(callCounter, 3)
+      resolve()
+    })
   })
 })
 
@@ -94,7 +100,7 @@ test.serial('Retry: async call service using retry option', async t => {
   t.is(response.message, 'Bad')
 })
 
-test.serial.cb('Request API with retry: call service using callback and just an argument', t => {
+test.serial('Request API with retry: call service using callback and just an argument', t => {
   t.plan(10)
 
   callCounter = 0
@@ -103,19 +109,26 @@ test.serial.cb('Request API with retry: call service using callback and just an 
     .Request('doSomething', { message: 'Bad' })
     .withRetry(5)
 
-  req.exec((err, res) => {
-    t.falsy(err)
-    t.is(callCounter, 3)
-    const { response } = res
-    t.truthy(res.response)
-    t.truthy(res.call)
-    t.falsy(res.metadata)
-    t.falsy(res.status)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.falsy(response.metadata)
-    t.is(response.message, 'Bad')
-    t.end()
+  return new Promise((resolve, reject) => {
+    req.exec((err, res) => {
+      if (err) {
+        t.fail(err)
+        return reject(err)
+      }
+
+      t.falsy(err)
+      t.is(callCounter, 3)
+      const { response } = res
+      t.truthy(res.response)
+      t.truthy(res.call)
+      t.falsy(res.metadata)
+      t.falsy(res.status)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.falsy(response.metadata)
+      t.is(response.message, 'Bad')
+      resolve()
+    })
   })
 })
 
@@ -184,6 +197,6 @@ test.serial('Request API with retry: call service using async with metadata and 
   t.deepEqual(metadata, expected)
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', async t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })

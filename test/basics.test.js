@@ -33,7 +33,6 @@ test.before('should dynamically create service', t => {
   server.addService(helloproto.Greeter.service, { sayHello: sayHello })
   server.bindAsync(DYNAMIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
@@ -52,48 +51,68 @@ test.before('should statically create service', t => {
   server.addService(services.GreeterService, { sayHello: sayHello })
   server.bindAsync(STATIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.cb('call dynamic service using callback', t => {
+test('call dynamic service using callback', t => {
   t.plan(4)
   const client = caller(DYNAMIC_HOST, PROTO_PATH, 'Greeter')
-  client.sayHello({ name: 'Bob' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello Bob')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, (err, response) => {
+      if (err) {
+        t.falsy(err) // This will fail if there's an error, but we still want to check it
+        reject(err)
+        return
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello Bob')
+      resolve()
+    })
   })
 })
 
-test.cb('call dynamic service using callback created using package', t => {
+test('call dynamic service using callback created using package', t => {
   t.plan(4)
   const client = caller(DYNAMIC_HOST, PROTO_PATH, 'helloworld.Greeter')
-  client.sayHello({ name: 'Bob' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello Bob')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Bob' }, (err, response) => {
+      if (err) {
+        t.falsy(err) // This will fail if there's an error, but we still want to check it
+        reject(err)
+        return
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello Bob')
+      resolve()
+    })
   })
 })
 
-test.cb('call dynamic service using callback and load options', t => {
+test('call dynamic service using callback and load options', t => {
   t.plan(4)
   const client = caller(DYNAMIC_HOST, { load: {}, file: PROTO_PATH }, 'Greeter')
-  client.sayHello({ name: 'Root' }, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.message)
-    t.is(response.message, 'Hello Root')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello({ name: 'Root' }, (err, response) => {
+      if (err) {
+        t.falsy(err) // This will fail if there's an error, but we still want to check it
+        reject(err)
+        return
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.message)
+      t.is(response.message, 'Hello Root')
+      resolve()
+    })
   })
 })
 
-test.cb('call static service using callback', t => {
+test('call static service using callback', t => {
   t.plan(5)
 
   const messages = require('./static/helloworld_pb')
@@ -103,14 +122,21 @@ test.cb('call static service using callback', t => {
 
   const request = new messages.HelloRequest()
   request.setName('Jane')
-  client.sayHello(request, (err, response) => {
-    t.falsy(err)
-    t.truthy(response)
-    t.truthy(response.getMessage)
-    const msg = response.getMessage()
-    t.truthy(msg)
-    t.is(msg, 'Hello Jane')
-    t.end()
+  return new Promise((resolve, reject) => {
+    client.sayHello(request, (err, response) => {
+      if (err) {
+        t.falsy(err) // This will fail if there's an error, but we still want to check it
+        reject(err)
+        return
+      }
+      t.falsy(err)
+      t.truthy(response)
+      t.truthy(response.getMessage)
+      const msg = response.getMessage()
+      t.truthy(msg)
+      t.is(msg, 'Hello Jane')
+      resolve()
+    })
   })
 })
 
@@ -150,6 +176,6 @@ test('call static service using async', async t => {
   t.is(msg, 'Hello Jane')
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })
