@@ -74,36 +74,53 @@ test.before('should dynamically create service', t => {
   server.addService(argProto.ArgService.service, { processStuff })
   server.bindAsync(DYNAMIC_HOST, grpc.ServerCredentials.createInsecure(), err => {
     t.falsy(err)
-    server.start()
     apps.push(server)
   })
 })
 
-test.cb('Duplex: call service using just an argument', t => {
+async function consumeReadableStream(call, { onData, onEnd, onError }) {
+  await new Promise((resolve, reject) => {
+    call.on('data', d => {
+      onData(d)
+    })
+    call.on('error', err => {
+      onError(err)
+      reject(err)
+    })
+    call.on('end', ()=> {
+      onEnd()
+      resolve()
+    })
+  })
+}
+
+test('Duplex: call service using just an argument', async t => {
   t.plan(1)
   let resData = []
 
   const call = client.processStuff()
 
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
+  const done = consumeReadableStream(call, {
+   onData: (d) => {
+     const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+     resData.push({ message: d.message, metadata })
+   },
+   onEnd: () => {
+     resData = _.sortBy(resData, 'message')
+
+     let expected = _.cloneDeep(data)
+     expected = _.map(expected, d => {
+       d.message = d.message.toUpperCase()
+       d.metadata = ''
+       return d
+     })
+
+     t.deepEqual(resData, expected)
+   },
+   onError: err => {
+     t.fail(err)
+   }
   })
-
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message.toUpperCase()
-      d.metadata = ''
-      return d
-    })
-
-    t.deepEqual(resData, expected)
-    t.end()
-  })
-
   async.eachSeries(data, (d, asfn) => {
     _.delay(() => {
       call.write(d)
@@ -112,31 +129,36 @@ test.cb('Duplex: call service using just an argument', t => {
   }, () => {
     _.delay(() => call.end(), 50)
   })
+
+  await done
 })
 
-test.cb('call service with metadata as plain object', t => {
+test('call service with metadata as plain object', async t => {
   t.plan(1)
   let resData = []
   const ts = new Date().getTime()
   const call = client.processStuff({ requestId: 'bar-123', timestamp: ts })
 
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
+  const done = consumeReadableStream(call, {
+    onData: d => {
+      const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+      resData.push({ message: d.message, metadata })
+    },
+    onEnd: () => {
+      resData = _.sortBy(resData, 'message')
 
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
+      let expected = _.cloneDeep(data)
+      expected = _.map(expected, d => {
+        d.message = d.message.toUpperCase()
+        d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
+        return d
+      })
 
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message.toUpperCase()
-      d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
-      return d
-    })
-
-    t.deepEqual(resData, expected)
-    t.end()
+      t.deepEqual(resData, expected)
+    },
+    onError: err => {
+      t.fail(err)
+    }
   })
 
   async.eachSeries(data, (d, asfn) => {
@@ -147,9 +169,11 @@ test.cb('call service with metadata as plain object', t => {
   }, () => {
     call.end()
   })
+
+  await done
 })
 
-test.cb('call service with metadata as Metadata', t => {
+test('call service with metadata as Metadata', async t => {
   t.plan(1)
   let resData = []
   const ts = new Date().getTime().toString()
@@ -157,24 +181,26 @@ test.cb('call service with metadata as Metadata', t => {
   reqMeta.add('requestId', 'bar-123')
   reqMeta.add('timestamp', ts)
   const call = client.processStuff(reqMeta)
+  const done = consumeReadableStream(call, {
+    onData: d => {
+        const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+        resData.push({ message: d.message, metadata })
+      },
+    onEnd: () => {
+        resData = _.sortBy(resData, 'message')
 
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
+        let expected = _.cloneDeep(data)
+        expected = _.map(expected, d => {
+          d.message = d.message.toUpperCase()
+          d.metadata = { requestid: 'bar-123', timestamp: ts }
+          return d
+        })
 
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
-
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message.toUpperCase()
-      d.metadata = { requestid: 'bar-123', timestamp: ts }
-      return d
-    })
-
-    t.deepEqual(resData, expected)
-    t.end()
+        t.deepEqual(resData, expected)
+    },
+    onError: err => {
+        t.fail(err)
+    }
   })
 
   async.eachSeries(data, (d, asfn) => {
@@ -185,31 +211,36 @@ test.cb('call service with metadata as Metadata', t => {
   }, () => {
     _.delay(() => call.end(), 50)
   })
+
+  await done
 })
 
-test.cb('call service with metadata as plain object and options object', t => {
+test('call service with metadata as plain object and options object', async t => {
   t.plan(1)
   let resData = []
   const ts = new Date().getTime()
   const call = client.processStuff({ requestId: 'bar-123', timestamp: ts }, { some: 'blah' })
 
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
+  const done = consumeReadableStream(call,{
+    onData: d => {
+        const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+        resData.push({ message: d.message, metadata })
+    },
+    onEnd: () => {
+        resData = _.sortBy(resData, 'message')
 
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
+        let expected = _.cloneDeep(data)
+        expected = _.map(expected, d => {
+          d.message = d.message.toUpperCase()
+          d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
+          return d
+        })
 
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message.toUpperCase()
-      d.metadata = { requestid: 'bar-123', timestamp: ts.toString() }
-      return d
-    })
-
-    t.deepEqual(resData, expected)
-    t.end()
+        t.deepEqual(resData, expected)
+    },
+    onError: err => {
+      t.fail(err)
+    }
   })
 
   async.eachSeries(data, (d, asfn) => {
@@ -220,9 +251,11 @@ test.cb('call service with metadata as plain object and options object', t => {
   }, () => {
     _.delay(() => call.end(), 50)
   })
+
+  await done
 })
 
-test.cb('call service with metadata as Metadata and options object', t => {
+test('call service with metadata as Metadata and options object', async t => {
   t.plan(1)
   let resData = []
   const ts = new Date().getTime().toString()
@@ -232,23 +265,26 @@ test.cb('call service with metadata as Metadata and options object', t => {
 
   const call = client.processStuff(reqMeta, { some: 'blah' })
 
-  call.on('data', d => {
-    const metadata = d.metadata ? JSON.parse(d.metadata) : ''
-    resData.push({ message: d.message, metadata })
-  })
+  const done = consumeReadableStream(call, {
+    onData: d => {
+        const metadata = d.metadata ? JSON.parse(d.metadata) : ''
+        resData.push({ message: d.message, metadata })
+    },
+    onEnd: () => {
+        resData = _.sortBy(resData, 'message')
 
-  call.on('end', () => {
-    resData = _.sortBy(resData, 'message')
+        let expected = _.cloneDeep(data)
+        expected = _.map(expected, d => {
+          d.message = d.message.toUpperCase()
+          d.metadata = { requestid: 'bar-123', timestamp: ts }
+          return d
+        })
 
-    let expected = _.cloneDeep(data)
-    expected = _.map(expected, d => {
-      d.message = d.message.toUpperCase()
-      d.metadata = { requestid: 'bar-123', timestamp: ts }
-      return d
-    })
-
-    t.deepEqual(resData, expected)
-    t.end()
+        t.deepEqual(resData, expected)
+    },
+    onError: err => {
+      t.fail(err)
+    }
   })
 
   async.eachSeries(data, (d, asfn) => {
@@ -259,8 +295,10 @@ test.cb('call service with metadata as Metadata and options object', t => {
   }, () => {
     _.delay(() => call.end(), 50)
   })
+
+  await done
 })
 
-test.after.always.cb('guaranteed cleanup', t => {
+test.after.always('guaranteed cleanup', t => {
   async.each(apps, (app, ascb) => app.tryShutdown(ascb), t.end)
 })
